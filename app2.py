@@ -1,6 +1,8 @@
 import pandas as pd
 import pickle
 import streamlit as st
+import matplotlib.pyplot as plt
+
 
 def getData():
     with open('outfield.pkl', 'rb') as file:
@@ -67,3 +69,17 @@ metric = engine[query]
 result = getRecommendations(df, ID, metric, player_type.lower(), league, comparison, query, count)
 st.markdown('### Here are players who play similar to {}'.format(query.split(' (')[0]))
 st.dataframe(result)
+
+# Plotting the similarity scores
+plt.figure(figsize=(8, 6))
+plt.bar(result['Player'], result['Similarity'])
+plt.xticks(rotation=45)
+plt.xlabel('Player')
+plt.ylabel('Similarity')
+plt.title('Similarity Scores')
+st.set_option('deprecation.showPyplotGlobalUse', False)
+# Display the chart using Streamlit
+st.pyplot()
+
+
+
