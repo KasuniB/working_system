@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
 from sklearn import decomposition
 from scipy.spatial import distance
 from tqdm import tqdm
@@ -8,54 +9,57 @@ import pickle
 
 redundant = ['Rk','Player','Nation','Pos','Squad','Comp','Age','Born','90s','Matches']
 
-def load_data():
-    df = pd.read_csv('goalkeeping.csv', header=0).drop(['Rk','Matches'], axis=1)
-    advanced_goalkeeping = pd.read_csv('advanced_goalkeeping.csv', header=0).drop(redundant, axis=1)
-    
-    def renameColumns(table_no, df):
-        num = str(table_no) + "_"
-        return df.rename(columns=lambda x: num + x)
+goalkeeping = pd.read_csv('goalkeeping.csv', header=0).drop(['Rk','Matches'], axis=1)
+advanced_goalkeeping = pd.read_csv('advanced_goalkeeping.csv', header=0).drop(redundant, axis=1)
 
-    advanced_goalkeeping = renameColumns(2, advanced_goalkeeping)
-    grand = pd.concat([df , advanced_goalkeeping], axis=1)
-    df = grand[grand['90s'] >= 3]
-    df.loc[:, 'Player'] = df['Player'].str.split('\\', expand=True)[0]
-    df.loc[:, 'Comp'] = df['Comp'].str.split(' ', expand=True, n=1)[1]
-    return df
+def renameColumns(table_no, df):
+    num = str(table_no) + "_"
+    return df.rename(columns=lambda x: num + x)
 
-def similarity(player1, player2):
-    p1 = stats[player_ID[player1], :]
-    p2 = stats[player_ID[player2], :]
-    sim = 100 - distance.cosine(p1, p2) * 100
-    return round(sim, 2)
+advanced_goalkeeping = renameColumns(8, advanced_goalkeeping)
 
-def normalize(metric):
-    min_metric = min(metric)
-    max_metric = max(metric)
-    return [(m - min_metric) / (max_metric - min_metric) * 100 for m in metric]
+grand = pd.concat([goalkeeping, advanced_goalkeeping], axis=1)
+print(grand.head())
+df = grand[grand['90s'] >= 3]
+df = df[df['Pos']=='GK'].reset_index()
+df.loc[:, 'Comp'] = df['Comp'].str.split(' ', expand=True, n=1)[1]
 
-df = load_data()
+with open('gk.pkl', 'wb') as file:
+    pickle.dump(df, file)
+
 players = []
-for idx, row in df.iterrows():
-    players.append(row['Player'] + '({})'.format(row['Squad']))
-
+for idx in range(len(df)):
+    players.append(df['Player'][idx] + '({})'.format(df['Squad'][idx]))
 player_ID = dict(zip(players, np.arange(len(players))))
+
 with open('gk_ID.pickle', 'wb') as file:
     pickle.dump(player_ID, file)
 
-stats = df.iloc[:, 12:-1]
+print(df)
+
+stats = df.iloc[:, 11:-1]
+labels = df['Pos']
 data = StandardScaler().fit_transform(stats)
-# Convert stats to a numpy array after standardization
-stats = np.array(data)
 
 pca = decomposition.PCA()
-pca.n_components = 38
+pca.n_components = 39
 pca_data = pca.fit_transform(data)
 
+percentage_var_explained = pca.explained_variance_ / np.sum(pca.explained_variance_)
+cum_var_explained = np.cumsum(percentage_var_explained)
+
 # The number of components should be the same as in the PCA
-stats = pca_data[:, :38]
-with open('column_names.pkl', 'wb') as file:
-    pickle.dump(list(range(38)), file)
+stats = pca_data[:, :39]
+
+def getStats(name):
+    idx = player_ID[name]
+    return stats[idx, :]
+
+def similarity(player1, player2):
+   return 1- distance.cosine(getStats(player1),getStats(player2))
+
+def normalize(array):
+   return np.array([round(num, 2) for num in (array - min(array))*100/(max(array)-min(array))])
 
 engine = {}
 for query in tqdm(players):
@@ -69,5 +73,3 @@ for query in tqdm(players):
 with open('gk_engine.pickle', 'wb') as file:
     pickle.dump(engine, file)
 
-with open('gk.pkl', 'wb') as file:
-    pickle.dump(stats, file)

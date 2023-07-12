@@ -1,8 +1,6 @@
 import pandas as pd
 import pickle
 import streamlit as st
-import matplotlib.pyplot as plt
-
 
 def getData():
     with open('outfield.pkl', 'rb') as file:
@@ -18,14 +16,12 @@ def getData():
         gk_ID = pickle.load(file)
     with open('gk_engine.pickle', 'rb') as file:
         gk_engine = pickle.load(file)
-    st.write('Columns in player_df: ', player_df.columns)
-    st.write('Columns in gk_df: ', gk_df.columns)
-
+    
     return player_df, player_ID, engine, gk_df, gk_ID, gk_engine
 
 def getRecommendations(df, ID, metric, df_type, league, comparison, query, count=5):
     if df_type == 'outfield players':
-        df_res = df.iloc[:, [1, 3, 5, 6, 11,-1]].copy()
+        df_res = df.iloc[:, [1, 3, 5, 6, 11]].copy()
     else:
         df_res = df.iloc[:, [1, 3, 5, 6, 11]].copy()
     
@@ -61,7 +57,7 @@ st.sidebar.markdown('### Input player info')
 players = list(ID.keys())
 query = st.sidebar.selectbox('Select a player', players)
 count = st.sidebar.slider('How many similar players do you want?', min_value=1, max_value=10, value=5)
-comparison = st.sidebar.selectbox('Comparison', ['All positions', 'Same position'])
+comparison = ('Comparison', ['All positions', 'Same position'])
 league = st.sidebar.selectbox('League', ['All', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1'])
 
 metric = engine[query]
@@ -69,17 +65,3 @@ metric = engine[query]
 result = getRecommendations(df, ID, metric, player_type.lower(), league, comparison, query, count)
 st.markdown('### Here are players who play similar to {}'.format(query.split(' (')[0]))
 st.dataframe(result)
-
-# Plotting the similarity scores
-plt.figure(figsize=(8, 6))
-plt.bar(result['Player'], result['Similarity'])
-plt.xticks(rotation=45)
-plt.xlabel('Player')
-plt.ylabel('Similarity')
-plt.title('Similarity Scores')
-st.set_option('deprecation.showPyplotGlobalUse', False)
-# Display the chart using Streamlit
-st.pyplot()
-
-
-
